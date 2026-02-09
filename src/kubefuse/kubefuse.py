@@ -1,38 +1,38 @@
 #!/usr/bin/env python
 
-import logging
-import six
 import argparse
+import logging
 import sys
+
 try:
-    from fuse import FUSE, FuseOSError, Operations, LoggingMixIn
+    from fuse import FUSE, LoggingMixIn, Operations
 except EnvironmentError:
     print("It looks like the Fuse system library is missing.")
-    print("Please install libfuse using your OS's package manager, or download OSXFUSE if you're on a Mac")
+    print(
+        "Please install libfuse using your OS's package manager, or download OSXFUSE if you're on a Mac"
+    )
     sys.exit(1)
 
 
-from . import client
-from . import filesystem
+from . import client, filesystem
 
 
 class KubeFuse(LoggingMixIn, Operations):
-
     def __init__(self, mount, kubeconfig=None, cluster=None, context=None, user=None):
         self.client = client.KubernetesClient(kubeconfig, cluster, context, user)
         self.fs = filesystem.KubeFileSystem(self.client)
         self.fd = 0
-        six.print_("Mounting KubeFuse on", mount)
+        print("Mounting KubeFuse on", mount)
 
     def readdir(self, path, fh):
         return self.fs.list_files(path)
 
-    def getattr(self, path, fh=None):
+    def getattr(self, path, fh):
         return self.fs.getattr(path)
 
-    def open(self, path, fh):
+    def open(self, path, flags):
         self.fd += 1
-        self.fs.open(path, fh)
+        self.fs.open(path, flags)
         return self.fd
 
     def read(self, path, size, offset, fh):
@@ -40,7 +40,6 @@ class KubeFuse(LoggingMixIn, Operations):
 
     def truncate(self, path, length, fh=None):
         self.fs.truncate(path, length)
-        return 0
 
     def write(self, path, buf, offset, fh):
         written = self.fs.write(path, buf, offset)
@@ -54,21 +53,34 @@ class KubeFuse(LoggingMixIn, Operations):
         self.fs.close(path)
         return 0
 
+
 def parse_args():
-    parser = argparse.ArgumentParser(description='A file system view for Kubernetes')
-    parser.add_argument('mountpoint', metavar='MOUNTPOINT', type=str,
-                        help='The directory to mount on')
-    parser.add_argument('--kubeconfig', dest='kubeconfig',
-                        help='Path to the kubeconfig file')
-    parser.add_argument('--cluster', dest='cluster',
-                        help='The name of the kubeconfig cluster to use')
-    parser.add_argument('--context', dest='context',
-                        help='The name of the kubeconfig context to use')
-    parser.add_argument('--user', dest='user',
-                        help='The name of the kubeconfig user to use')
-    parser.add_argument('--verbose', '-v', action='count', dest='verbosity',
-                        default=0, help='Verbosity of program output')
+    parser = argparse.ArgumentParser(description="A file system view for Kubernetes")
+    parser.add_argument(
+        "mountpoint", metavar="MOUNTPOINT", type=str, help="The directory to mount on"
+    )
+    parser.add_argument(
+        "--kubeconfig", dest="kubeconfig", help="Path to the kubeconfig file"
+    )
+    parser.add_argument(
+        "--cluster", dest="cluster", help="The name of the kubeconfig cluster to use"
+    )
+    parser.add_argument(
+        "--context", dest="context", help="The name of the kubeconfig context to use"
+    )
+    parser.add_argument(
+        "--user", dest="user", help="The name of the kubeconfig user to use"
+    )
+    parser.add_argument(
+        "--verbose",
+        "-v",
+        action="count",
+        dest="verbosity",
+        default=0,
+        help="Verbosity of program output",
+    )
     return parser.parse_args()
+
 
 def main():
     args = parse_args()
@@ -80,8 +92,12 @@ def main():
         logging.basicConfig(level=logging.DEBUG)
     else:
         logging.basicConfig(level=0)
-    FUSE(KubeFuse(args.mountpoint, args.kubeconfig, args.cluster, args.context),
-         args.mountpoint, foreground=True)
+    FUSE(
+        KubeFuse(args.mountpoint, args.kubeconfig, args.cluster, args.context),
+        args.mountpoint,
+        foreground=True,
+    )
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     main()

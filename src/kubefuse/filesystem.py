@@ -1,9 +1,12 @@
+import errno
+import logging
 from stat import S_IFDIR, S_IFREG
 from time import time
-import logging
-import errno
+
 from fuse import FuseOSError
-from . import path 
+
+from . import path
+
 KubePath = path.KubePath
 
 logger = logging.getLogger(__name__)
@@ -17,9 +20,14 @@ class KubeFileSystem(object):
 
     @staticmethod
     def _stat_dir():
-        return dict(st_mode=(S_IFDIR | 0o555), st_nlink=2,
-                st_size=0, st_ctime=time(), st_mtime=time(),
-                st_atime=time())
+        return dict(
+            st_mode=(S_IFDIR | 0o555),
+            st_nlink=2,
+            st_size=0,
+            st_ctime=int(time()),
+            st_mtime=int(time()),
+            st_atime=int(time()),
+        )
 
     @staticmethod
     def _stat_file(client, path, size=None):
@@ -28,9 +36,14 @@ class KubeFileSystem(object):
         ts = path.get_creation_date_for_action_file(client)
         if ts is None:
             ts = time()
-        return dict(st_mode=(S_IFREG | path.get_mode()), st_nlink=1,
-                st_size=size, st_ctime=ts, st_mtime=ts,
-                st_atime=ts)
+        return dict(
+            st_mode=(S_IFREG | path.get_mode()),
+            st_nlink=1,
+            st_size=size,
+            st_ctime=ts,
+            st_mtime=ts,
+            st_atime=ts,
+        )
 
     def open_for_writing(self, path):
         if path not in self.open_files:
@@ -46,8 +59,8 @@ class KubeFileSystem(object):
 
     def write(self, path, buf, offset):
         self.open_for_writing(path)
-        if type(buf) == str:
-            buf = buf.encode('utf-8')
+        if isinstance(buf, str):
+            buf = buf.encode("utf-8")
         self.open_files[path] = self.open_files[path][:offset] + buf
         return len(buf)
 
@@ -55,11 +68,12 @@ class KubeFileSystem(object):
         if path not in self.open_files:
             return
         self.persist(path, self.open_files[path])
-        del(self.open_files[path])
-        del(self.flushed[path])
+        del self.open_files[path]
+        del self.flushed[path]
         p = KubePath().parse_path(path)
-        self.client.delete_from_cache(p.namespace, p.resource_type, 
-            p.object_id, p.action)
+        self.client.delete_from_cache(
+            p.namespace, p.resource_type, p.object_id, p.action
+        )
 
     def sync(self, path, dry_run=False):
         if path not in self.open_files:
@@ -68,7 +82,7 @@ class KubeFileSystem(object):
 
     def persist(self, path, data, dry_run=False):
         if path in self.flushed and data == self.flushed[path]:
-            return 
+            return
         self.flushed[path] = data
         if not dry_run:
             self.client.replace(data)
@@ -81,8 +95,8 @@ class KubeFileSystem(object):
         if not p.is_dir():
             logger.info("not a directory")
             raise FuseOSError(errno.ENOTDIR)
-        if p.object_id is not None: 
-            if p.resource_type != 'pod':
+        if p.object_id is not None:
+            if p.resource_type != "pod":
                 return p.SUPPORTED_ACTIONS
             else:
                 return p.SUPPORTED_POD_ACTIONS
@@ -111,5 +125,4 @@ class KubeFileSystem(object):
             data = self.flushed[path]
         else:
             data = p.do_action(self.client)
-        return data[offset:offset + size]
-
+        return data[offset : offset + size]
