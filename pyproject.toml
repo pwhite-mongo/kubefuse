@@ -1,0 +1,25 @@
+[project]
+name = "kubefuse"
+version = "0.1.0"
+description = "Kubernetes as a FUSE fileystem"
+readme = "README.md"
+requires-python = ">=3.14"
+dependencies = [
+    "fusepy>=3.0.1",
+    "nose>=1.3.7",
+    "pyhamcrest>=2.1.0",
+    "python-myna>=1.2.0",
+    "pyyaml>=6.0.3",
+]
+authors = [
+    { name = "Bart Spaans", email = "bart.spaans@gmail.com" },
+    { name = "Patrick White", email = "patrick.white@mongodb.com"}]
+license = "Apache-2.0"
+
+
+[project.scripts]
+kubefuse = "kubefuse.kubefuse:main"
+
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
